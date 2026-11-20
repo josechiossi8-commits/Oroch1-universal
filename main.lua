@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -37,7 +38,7 @@ conteudo.Size = UDim2.new(1, 0, 1, -35)
 conteudo.Position = UDim2.fromOffset(0, 35)
 conteudo.BackgroundTransparency = 1
 conteudo.BorderSizePixel = 0
-conteudo.CanvasSize = UDim2.fromOffset(0, 390)
+conteudo.CanvasSize = UDim2.fromOffset(0, 425)
 conteudo.ScrollBarThickness = 4
 conteudo.Parent = menu
 
@@ -49,6 +50,48 @@ titulo.Active = true
 titulo.TextColor3 = Color3.new(1, 1, 1)
 titulo.TextSize = 16
 titulo.Parent = menu
+
+local statusSalvar = Instance.new("TextLabel")
+statusSalvar.Size = UDim2.new(1, -20, 0, 30)
+statusSalvar.Position = UDim2.fromOffset(10, 385)
+statusSalvar.BackgroundTransparency = 1
+statusSalvar.TextColor3 = Color3.fromRGB(200, 200, 210)
+statusSalvar.TextSize = 12
+statusSalvar.TextWrapped = true
+statusSalvar.Parent = conteudo
+
+local arquivoConfig = "Oroch1Universal_config.json"
+local podeSalvar = type(readfile) == "function" and type(writefile) == "function"
+local alteracaoPendente = false
+local versaoSalvamento = 0
+statusSalvar.Text = podeSalvar and "Salvamento automatico ativo" or "Este executor nao suporta salvar"
+
+local function salvarConfiguracoes()
+ if not podeSalvar or not alteracaoPendente then return end
+ local ok = pcall(function()
+  local dados = { velocidade = velocidade, pulo = pulo }
+  writefile(arquivoConfig, HttpService:JSONEncode(dados))
+ end)
+ if ok then
+  alteracaoPendente = false
+  statusSalvar.Text = "Configuracoes salvas"
+ else
+  statusSalvar.Text = "Nao foi possivel salvar"
+ end
+end
+
+local function agendarSalvamento()
+ if not podeSalvar then return end
+ alteracaoPendente = true
+ versaoSalvamento = versaoSalvamento + 1
+ local versao = versaoSalvamento
+ statusSalvar.Text = "Salvando..."
+ task.delay(0.8, function()
+  if gui.Parent and versao == versaoSalvamento then
+   salvarConfiguracoes()
+  end
+ end)
+end
 
 local arrastandoMenu = false
 local toqueMenu = nil
@@ -172,6 +215,7 @@ local function definirVelocidade(valor)
  campo.Text = tostring(valor)
  atualizarSlider(valor)
  mudarVelocidade()
+ agendarSalvamento()
 end
 
 local function ajustarPelaPosicao(x)
@@ -247,6 +291,7 @@ local function definirPulo(valor)
  atualizarSliderPulo(valor)
  local personagem = player.Character
  aplicarPuloAoPersonagem(personagem and personagem:FindFirstChildOfClass("Humanoid"))
+ agendarSalvamento()
 end
 
 local function ajustarPuloPelaPosicao(x)
@@ -331,7 +376,48 @@ local conexao = player.CharacterAdded:Connect(function(personagem)
  end
 end)
 
+-- Carrega apenas valores validos; nao aplica valores padrao sem escolha anterior.
+if podeSalvar then
+ local existe = true
+ if type(isfile) == "function" then
+  local okExiste, resultado = pcall(isfile, arquivoConfig)
+  if okExiste then existe = resultado end
+ end
+ if existe then
+  local ok, dados = pcall(function()
+   return HttpService:JSONDecode(readfile(arquivoConfig))
+  end)
+  if ok and type(dados) == "table" then
+   if type(dados.velocidade) == "number" and dados.velocidade >= 1 and dados.velocidade <= 500 then
+    velocidade = dados.velocidade
+    campo.Text = tostring(velocidade)
+    atualizarSlider(velocidade)
+   end
+   if type(dados.pulo) == "number" and dados.pulo >= 0 and dados.pulo <= 500 then
+    pulo = dados.pulo
+    campoPulo.Text = tostring(pulo)
+    atualizarSliderPulo(pulo)
+   end
+   statusSalvar.Text = "Configuracoes carregadas"
+  elseif type(isfile) == "function" then
+   statusSalvar.Text = "Nao foi possivel carregar"
+  end
+ end
+end
+
+local personagemAtual = player.Character
+if personagemAtual and (velocidade ~= nil or pulo ~= nil) then
+ task.spawn(function()
+  local humanoid = personagemAtual:FindFirstChildOfClass("Humanoid") or personagemAtual:WaitForChild("Humanoid", 10)
+  if humanoid and gui.Parent and player.Character == personagemAtual then
+   if velocidade then humanoid.WalkSpeed = velocidade end
+   aplicarPuloAoPersonagem(humanoid)
+  end
+ end)
+end
+
 gui.Destroying:Connect(function()
+ salvarConfiguracoes()
  conexao:Disconnect()
  movimento:Disconnect()
  fimEntrada:Disconnect()
