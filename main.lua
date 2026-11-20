@@ -23,32 +23,83 @@ alternar.TextSize = 16
 alternar.Parent = gui
 Instance.new("UICorner", alternar)
 
-local menu = Instance.new("ScrollingFrame")
+local menu = Instance.new("Frame")
 menu.Size = UDim2.fromOffset(220, 290)
 menu.Position = UDim2.new(0.5, -110, 0.5, -145)
 menu.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 menu.BorderSizePixel = 0
-menu.CanvasSize = UDim2.fromOffset(0, 425)
-menu.ScrollBarThickness = 4
 menu.Parent = gui
 Instance.new("UICorner", menu)
+
+local conteudo = Instance.new("ScrollingFrame")
+conteudo.Name = "Conteudo"
+conteudo.Size = UDim2.new(1, 0, 1, -35)
+conteudo.Position = UDim2.fromOffset(0, 35)
+conteudo.BackgroundTransparency = 1
+conteudo.BorderSizePixel = 0
+conteudo.CanvasSize = UDim2.fromOffset(0, 390)
+conteudo.ScrollBarThickness = 4
+conteudo.Parent = menu
 
 local titulo = Instance.new("TextLabel")
 titulo.Size = UDim2.new(1, 0, 0, 35)
 titulo.BackgroundTransparency = 1
-titulo.Text = "Oroch1 universal"
+titulo.Text = "Oroch1 universal  •  arraste"
+titulo.Active = true
 titulo.TextColor3 = Color3.new(1, 1, 1)
-titulo.TextSize = 18
+titulo.TextSize = 16
 titulo.Parent = menu
+
+local arrastandoMenu = false
+local toqueMenu = nil
+local inicioArrasto = nil
+local posicaoInicial = nil
+local posicaoAbsolutaInicial = nil
+
+titulo.InputBegan:Connect(function(input)
+ if arrastandoMenu then return end
+ if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+  arrastandoMenu = true
+  toqueMenu = input.UserInputType == Enum.UserInputType.Touch and input or nil
+  inicioArrasto = input.Position
+  posicaoInicial = menu.Position
+  posicaoAbsolutaInicial = menu.AbsolutePosition
+ end
+end)
+
+local movimentoMenu = UserInputService.InputChanged:Connect(function(input)
+ if not arrastandoMenu then return end
+ if (toqueMenu and input == toqueMenu) or
+  (not toqueMenu and input.UserInputType == Enum.UserInputType.MouseMovement) then
+  local deslocamento = input.Position - inicioArrasto
+  local camera = workspace.CurrentCamera
+  local dx, dy = deslocamento.X, deslocamento.Y
+  if camera then
+   local tela = camera.ViewportSize
+   dx = math.clamp(posicaoAbsolutaInicial.X + dx, 40 - menu.AbsoluteSize.X, math.max(40 - menu.AbsoluteSize.X, tela.X - 40)) - posicaoAbsolutaInicial.X
+   dy = math.clamp(posicaoAbsolutaInicial.Y + dy, 0, math.max(0, tela.Y - 35)) - posicaoAbsolutaInicial.Y
+  end
+  menu.Position = UDim2.new(posicaoInicial.X.Scale, posicaoInicial.X.Offset + dx, posicaoInicial.Y.Scale, posicaoInicial.Y.Offset + dy)
+ end
+end)
+
+local fimEntradaMenu = UserInputService.InputEnded:Connect(function(input)
+ if not arrastandoMenu then return end
+ if (toqueMenu and input == toqueMenu) or
+  (not toqueMenu and input.UserInputType == Enum.UserInputType.MouseButton1) then
+  arrastandoMenu = false
+  toqueMenu = nil
+ end
+end)
 
 local campo = Instance.new("TextBox")
 campo.Size = UDim2.new(1, -20, 0, 35)
-campo.Position = UDim2.fromOffset(10, 40)
+campo.Position = UDim2.fromOffset(10, 5)
 campo.PlaceholderText = "Digite a velocidade"
 campo.Text = "32"
 campo.TextSize = 16
 campo.ClearTextOnFocus = false
-campo.Parent = menu
+campo.Parent = conteudo
 Instance.new("UICorner", campo)
 
 local function criarBotao(texto, y)
@@ -59,21 +110,21 @@ local function criarBotao(texto, y)
  botao.TextColor3 = Color3.new(1, 1, 1)
  botao.Text = texto
  botao.TextSize = 16
- botao.Parent = menu
+ botao.Parent = conteudo
  Instance.new("UICorner", botao)
  return botao
 end
 
-local aplicar = criarBotao("Aplicar velocidade", 140)
-local resetar = criarBotao("Velocidade 16", 185)
+local aplicar = criarBotao("Aplicar velocidade", 105)
+local resetar = criarBotao("Velocidade 16", 150)
 
 local slider = Instance.new("TextButton")
 slider.Name = "ControleVelocidade"
 slider.Size = UDim2.new(1, -20, 0, 40)
-slider.Position = UDim2.fromOffset(10, 88)
+slider.Position = UDim2.fromOffset(10, 53)
 slider.BackgroundTransparency = 1
 slider.Text = ""
-slider.Parent = menu
+slider.Parent = conteudo
 
 local trilho = Instance.new("Frame")
 trilho.Name = "Trilho"
@@ -161,21 +212,21 @@ local fimEntrada = UserInputService.InputEnded:Connect(function(input)
 end)
 
 local campoPulo = campo:Clone()
-campoPulo.Position = UDim2.fromOffset(10, 235)
+campoPulo.Position = UDim2.fromOffset(10, 200)
 campoPulo.PlaceholderText = "Digite a forca do pulo"
 campoPulo.Text = "50"
-campoPulo.Parent = menu
+campoPulo.Parent = conteudo
 
 local sliderPulo = slider:Clone()
 sliderPulo.Name = "ControlePulo"
-sliderPulo.Position = UDim2.fromOffset(10, 280)
-sliderPulo.Parent = menu
+sliderPulo.Position = UDim2.fromOffset(10, 245)
+sliderPulo.Parent = conteudo
 local trilhoPulo = sliderPulo:WaitForChild("Trilho")
 local preenchimentoPulo = trilhoPulo:WaitForChild("Preenchimento")
 local indicadorPulo = trilhoPulo:WaitForChild("Indicador")
 
-local aplicarPulo = criarBotao("Aplicar pulo", 330)
-local resetarPulo = criarBotao("Pulo 50", 375)
+local aplicarPulo = criarBotao("Aplicar pulo", 295)
+local resetarPulo = criarBotao("Pulo 50", 340)
 
 local function atualizarSliderPulo(valor)
  local proporcao = math.clamp(valor / 500, 0, 1)
@@ -286,4 +337,6 @@ gui.Destroying:Connect(function()
  fimEntrada:Disconnect()
  movimentoPulo:Disconnect()
  fimEntradaPulo:Disconnect()
+ movimentoMenu:Disconnect()
+ fimEntradaMenu:Disconnect()
 end)
