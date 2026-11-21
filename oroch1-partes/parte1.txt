@@ -1,0 +1,146 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local antigo = playerGui:FindFirstChild("Oroch1Universal")
+if antigo then antigo:Destroy() end
+
+local velocidade = nil
+local pulo = nil
+local temaAtual = "Roxo"
+local gui = Instance.new("ScreenGui")
+gui.Name = "Oroch1Universal"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local alternar = Instance.new("TextButton")
+alternar.Size = UDim2.fromOffset(150, 40)
+alternar.Position = UDim2.new(0, 10, 0.5, -20)
+alternar.BackgroundColor3 = Color3.fromRGB(75, 75, 110)
+alternar.TextColor3 = Color3.new(1, 1, 1)
+alternar.Text = "Minimizar"
+alternar.TextSize = 16
+alternar.Parent = gui
+Instance.new("UICorner", alternar)
+
+local menu = Instance.new("Frame")
+menu.Size = UDim2.fromOffset(220, 290)
+menu.Position = UDim2.new(0.5, -110, 0.5, -145)
+menu.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+menu.BorderSizePixel = 0
+menu.Parent = gui
+Instance.new("UICorner", menu)
+
+local conteudo = Instance.new("ScrollingFrame")
+conteudo.Name = "Conteudo"
+conteudo.Size = UDim2.new(1, 0, 1, -35)
+conteudo.Position = UDim2.fromOffset(0, 35)
+conteudo.BackgroundTransparency = 1
+conteudo.BorderSizePixel = 0
+conteudo.CanvasSize = UDim2.fromOffset(0, 475)
+conteudo.ScrollBarThickness = 4
+conteudo.Parent = menu
+
+local titulo = Instance.new("TextLabel")
+titulo.Size = UDim2.new(1, 0, 0, 35)
+titulo.BackgroundTransparency = 1
+titulo.Text = "Oroch1 universal  •  arraste"
+titulo.Active = true
+titulo.TextColor3 = Color3.new(1, 1, 1)
+titulo.TextSize = 16
+titulo.Parent = menu
+
+local statusSalvar = Instance.new("TextLabel")
+statusSalvar.Size = UDim2.new(1, -20, 0, 30)
+statusSalvar.Position = UDim2.fromOffset(10, 430)
+statusSalvar.BackgroundTransparency = 1
+statusSalvar.TextColor3 = Color3.fromRGB(200, 200, 210)
+statusSalvar.TextSize = 12
+statusSalvar.TextWrapped = true
+statusSalvar.Parent = conteudo
+
+local arquivoConfig = "Oroch1Universal_config.json"
+local podeSalvar = type(readfile) == "function" and type(writefile) == "function"
+local alteracaoPendente = false
+local versaoSalvamento = 0
+statusSalvar.Text = podeSalvar and "Salvamento automatico ativo" or "Este executor nao suporta salvar"
+
+local function salvarConfiguracoes()
+ if not podeSalvar or not alteracaoPendente then return end
+ local ok = pcall(function()
+  local dados = { velocidade = velocidade, pulo = pulo, tema = temaAtual }
+  writefile(arquivoConfig, HttpService:JSONEncode(dados))
+ end)
+ if ok then
+  alteracaoPendente = false
+  statusSalvar.Text = "Configuracoes salvas"
+ else
+  statusSalvar.Text = "Nao foi possivel salvar"
+ end
+end
+
+local function agendarSalvamento()
+ if not podeSalvar then return end
+ alteracaoPendente = true
+ versaoSalvamento = versaoSalvamento + 1
+ local versao = versaoSalvamento
+ statusSalvar.Text = "Salvando..."
+ task.delay(0.8, function()
+  if gui.Parent and versao == versaoSalvamento then
+   salvarConfiguracoes()
+  end
+ end)
+end
+
+local arrastandoMenu = false
+local toqueMenu = nil
+local inicioArrasto = nil
+local posicaoInicial = nil
+local posicaoAbsolutaInicial = nil
+
+titulo.InputBegan:Connect(function(input)
+ if arrastandoMenu then return end
+ if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+  arrastandoMenu = true
+  toqueMenu = input.UserInputType == Enum.UserInputType.Touch and input or nil
+  inicioArrasto = input.Position
+  posicaoInicial = menu.Position
+  posicaoAbsolutaInicial = menu.AbsolutePosition
+ end
+end)
+
+local movimentoMenu = UserInputService.InputChanged:Connect(function(input)
+ if not arrastandoMenu then return end
+ if (toqueMenu and input == toqueMenu) or
+  (not toqueMenu and input.UserInputType == Enum.UserInputType.MouseMovement) then
+  local deslocamento = input.Position - inicioArrasto
+  local camera = workspace.CurrentCamera
+  local dx, dy = deslocamento.X, deslocamento.Y
+  if camera then
+   local tela = camera.ViewportSize
+   dx = math.clamp(posicaoAbsolutaInicial.X + dx, 40 - menu.AbsoluteSize.X, math.max(40 - menu.AbsoluteSize.X, tela.X - 40)) - posicaoAbsolutaInicial.X
+   dy = math.clamp(posicaoAbsolutaInicial.Y + dy, 0, math.max(0, tela.Y - 35)) - posicaoAbsolutaInicial.Y
+  end
+  menu.Position = UDim2.new(posicaoInicial.X.Scale, posicaoInicial.X.Offset + dx, posicaoInicial.Y.Scale, posicaoInicial.Y.Offset + dy)
+ end
+end)
+
+local fimEntradaMenu = UserInputService.InputEnded:Connect(function(input)
+ if not arrastandoMenu then return end
+ if (toqueMenu and input == toqueMenu) or
+  (not toqueMenu and input.UserInputType == Enum.UserInputType.MouseButton1) then
+  arrastandoMenu = false
+  toqueMenu = nil
+ end
+end)
+
+local campo = Instance.new("TextBox")
+campo.Size = UDim2.new(1, -20, 0, 35)
+campo.Position = UDim2.fromOffset(10, 5)
+campo.PlaceholderText = "Digite a velocidade"
+campo.Text = "32"
+campo.TextSize = 16
+campo.ClearTextOnFocus = false
+campo.
