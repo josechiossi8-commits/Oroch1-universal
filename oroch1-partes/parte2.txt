@@ -1,0 +1,160 @@
+Parent = conteudo
+Instance.new("UICorner", campo)
+
+local function criarBotao(texto, y)
+ local botao = Instance.new("TextButton")
+ botao.Size = UDim2.new(1, -20, 0, 35)
+ botao.Position = UDim2.fromOffset(10, y)
+ botao.BackgroundColor3 = Color3.fromRGB(75, 75, 110)
+ botao.TextColor3 = Color3.new(1, 1, 1)
+ botao.Text = texto
+ botao.TextSize = 16
+ botao.Parent = conteudo
+ Instance.new("UICorner", botao)
+ return botao
+end
+
+local aplicar = criarBotao("Aplicar velocidade", 105)
+local resetar = criarBotao("Velocidade 16", 150)
+
+local slider = Instance.new("TextButton")
+slider.Name = "ControleVelocidade"
+slider.Size = UDim2.new(1, -20, 0, 40)
+slider.Position = UDim2.fromOffset(10, 53)
+slider.BackgroundTransparency = 1
+slider.Text = ""
+slider.Parent = conteudo
+
+local trilho = Instance.new("Frame")
+trilho.Name = "Trilho"
+trilho.Size = UDim2.new(1, -20, 0, 6)
+trilho.Position = UDim2.new(0, 10, 0.5, -3)
+trilho.BackgroundColor3 = Color3.fromRGB(100, 100, 120)
+trilho.BorderSizePixel = 0
+trilho.Parent = slider
+Instance.new("UICorner", trilho)
+
+local preenchimento = Instance.new("Frame")
+preenchimento.Name = "Preenchimento"
+preenchimento.Size = UDim2.new(0, 0, 1, 0)
+preenchimento.BackgroundColor3 = Color3.fromRGB(150, 150, 225)
+preenchimento.BorderSizePixel = 0
+preenchimento.Parent = trilho
+Instance.new("UICorner", preenchimento)
+
+local indicador = Instance.new("Frame")
+indicador.Name = "Indicador"
+indicador.AnchorPoint = Vector2.new(0.5, 0.5)
+indicador.Size = UDim2.fromOffset(20, 20)
+indicador.Position = UDim2.new(0, 0, 0.5, 0)
+indicador.BackgroundColor3 = Color3.fromRGB(190, 190, 255)
+indicador.BorderSizePixel = 0
+indicador.Parent = trilho
+Instance.new("UICorner", indicador).CornerRadius = UDim.new(1, 0)
+
+local function atualizarSlider(valor)
+ local proporcao = math.clamp((valor - 1) / 499, 0, 1)
+ preenchimento.Size = UDim2.new(proporcao, 0, 1, 0)
+ indicador.Position = UDim2.new(proporcao, 0, 0.5, 0)
+end
+
+local function mudarVelocidade()
+ local personagem = player.Character
+ local humanoid = personagem and personagem:FindFirstChildOfClass("Humanoid")
+ if humanoid and velocidade then
+  humanoid.WalkSpeed = velocidade
+ end
+end
+
+local function definirVelocidade(valor)
+ velocidade = valor
+ campo.Text = tostring(valor)
+ atualizarSlider(valor)
+ mudarVelocidade()
+ agendarSalvamento()
+end
+
+local function ajustarPelaPosicao(x)
+ local largura = trilho.AbsoluteSize.X
+ if largura <= 0 then return end
+ local proporcao = math.clamp((x - trilho.AbsolutePosition.X) / largura, 0, 1)
+ definirVelocidade(math.floor(1 + proporcao * 499 + 0.5))
+end
+
+local arrastando = false
+local toqueAtivo = nil
+slider.InputBegan:Connect(function(input)
+ if input.UserInputType == Enum.UserInputType.MouseButton1 then
+  arrastando = true
+  toqueAtivo = nil
+  ajustarPelaPosicao(input.Position.X)
+ elseif input.UserInputType == Enum.UserInputType.Touch and not arrastando then
+  arrastando = true
+  toqueAtivo = input
+  ajustarPelaPosicao(input.Position.X)
+ end
+end)
+
+local movimento = UserInputService.InputChanged:Connect(function(input)
+ if not arrastando then return end
+ if (toqueAtivo and input == toqueAtivo) or
+  (not toqueAtivo and input.UserInputType == Enum.UserInputType.MouseMovement) then
+  ajustarPelaPosicao(input.Position.X)
+ end
+end)
+
+local fimEntrada = UserInputService.InputEnded:Connect(function(input)
+ if (toqueAtivo and input == toqueAtivo) or
+  (not toqueAtivo and input.UserInputType == Enum.UserInputType.MouseButton1) then
+  arrastando = false
+  toqueAtivo = nil
+ end
+end)
+
+local campoPulo = campo:Clone()
+campoPulo.Position = UDim2.fromOffset(10, 200)
+campoPulo.PlaceholderText = "Digite a forca do pulo"
+campoPulo.Text = "50"
+campoPulo.Parent = conteudo
+
+local sliderPulo = slider:Clone()
+sliderPulo.Name = "ControlePulo"
+sliderPulo.Position = UDim2.fromOffset(10, 245)
+sliderPulo.Parent = conteudo
+local trilhoPulo = sliderPulo:WaitForChild("Trilho")
+local preenchimentoPulo = trilhoPulo:WaitForChild("Preenchimento")
+local indicadorPulo = trilhoPulo:WaitForChild("Indicador")
+
+local aplicarPulo = criarBotao("Aplicar pulo", 295)
+local resetarPulo = criarBotao("Pulo 50", 340)
+
+local function atualizarSliderPulo(valor)
+ local proporcao = math.clamp(valor / 500, 0, 1)
+ preenchimentoPulo.Size = UDim2.new(proporcao, 0, 1, 0)
+ indicadorPulo.Position = UDim2.new(proporcao, 0, 0.5, 0)
+end
+
+local function aplicarPuloAoPersonagem(humanoid)
+ if humanoid and pulo ~= nil then
+  humanoid.UseJumpPower = true
+  humanoid.JumpPower = pulo
+ end
+end
+
+local function definirPulo(valor)
+ pulo = valor
+ campoPulo.Text = tostring(valor)
+ atualizarSliderPulo(valor)
+ local personagem = player.Character
+ aplicarPuloAoPersonagem(personagem and personagem:FindFirstChildOfClass("Humanoid"))
+ agendarSalvamento()
+end
+
+local function ajustarPuloPelaPosicao(x)
+ local largura = trilhoPulo.AbsoluteSize.X
+ if largura <= 0 then return end
+ local proporcao = math.clamp((x - trilhoPulo.AbsolutePosition.X) / largura, 0, 1)
+ definirPulo(math.floor(proporcao * 500 + 0.5))
+end
+
+local arrastandoPulo = 
