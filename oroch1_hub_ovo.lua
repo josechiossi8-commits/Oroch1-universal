@@ -56,9 +56,13 @@ close.Activated:Connect(function() gui:Destroy() end)
 local refresh = button(frame, "ATUALIZAR", UDim2.new(1, -20, 0, 23), UDim2.fromOffset(10, 34), blue, 10)
 local hint = label(frame, "OVOS DETECTADOS • MAIS PERTO PRIMEIRO", UDim2.new(1, -20, 0, 18), UDim2.fromOffset(10, 60), 9)
 hint.TextColor3 = Color3.fromRGB(173, 207, 255)
-local list = Instance.new("Frame"); list.BackgroundTransparency = 1; list.Size = UDim2.new(1, -20, 0, 146)
-list.Position = UDim2.fromOffset(10, 79); list.Parent = frame
-local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4); layout.Parent = list
+local list = Instance.new("ScrollingFrame"); list.BackgroundTransparency = 1; list.Size = UDim2.new(1, -20, 0, 146)
+list.Position = UDim2.fromOffset(10, 79); list.BorderSizePixel = 0; list.ScrollBarThickness = 4
+list.ScrollBarImageColor3 = Color3.fromRGB(116, 190, 255); list.CanvasSize = UDim2.new(); list.Parent = frame
+local layout = Instance.new("UIListLayout"); layout.Padding = UDim.new(0, 4); layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Parent = list
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+ list.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y)
+end)
 local status = label(frame, "Carregando...", UDim2.new(1, -20, 0, 29), UDim2.fromOffset(10, 226), 10)
 status.TextWrapped = true; status.TextTruncate = Enum.TextTruncate.None
 local go = button(frame, "▶  GO", UDim2.new(0.5, -12, 0, 25), UDim2.new(0, 10, 1, -31), blue, 11)
@@ -124,14 +128,15 @@ local function refreshList()
  if selected and (not selected.Parent or not isEggPrompt(selected)) then selected = nil end
  if not selected and results[1] then selected = results[1].prompt end
  local selectedStillListed = false
- for i = 1, math.min(#results, 4) do
+ for i = 1, #results do
   local entry = results[i]
   if entry.prompt == selected then selectedStillListed = true end
  end
  if not selectedStillListed and results[1] then selected = results[1].prompt end
- for i = 1, math.min(#results, 4) do
+ for i = 1, #results do
   local entry = results[i]; local name = describe(entry.prompt)
-  local item = button(list, "", UDim2.new(1, 0, 0, 33), UDim2.new(), entry.prompt == selected and blue or medium, 10)
+  local item = button(list, "", UDim2.new(1, -4, 0, 33), UDim2.new(), entry.prompt == selected and blue or medium, 10)
+  item.LayoutOrder = i
   outline(item, entry.prompt == selected and Color3.fromRGB(116, 190, 255) or Color3.fromRGB(41, 92, 175))
   local main = label(item, name, UDim2.new(1, -12, 0, 15), UDim2.fromOffset(6, 2), 10); main.Font = Enum.Font.GothamBold
   local details = entry.distance == math.huge and "Distância indisponível" or string.format("%.0f studs • toque para selecionar", entry.distance)
