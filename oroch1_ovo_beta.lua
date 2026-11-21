@@ -74,43 +74,87 @@ local function posicao(obj)
  if obj:IsA("BasePart") then return obj.Position end
  return nil
 end
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local registros = {}
+local pedindo = false
+local function atualizarRegistros()
+ if pedindo then return end
+ pedindo = true
+ task.spawn(function()
+  local encontrados = {}
+  local client = ReplicatedStorage:FindFirstChild("Client")
+  local modulo = client and client:FindFirstChild("EggState")
+  if modulo then
+   local ok, estadoOvos = pcall(require, modulo)
+   if ok and type(estadoOvos) == "table" and type(estadoOvos.ReadFieldEggs) == "function" then
+    local sucesso, resultado = pcall(estadoOvos.ReadFieldEggs)
+    if sucesso and type(resultado) == "table" then table.insert(encontrados, resultado.Records or resultado) end
+   end
+  end
+  local remoto = ReplicatedStorage:FindFirstChild("RF/EggWorld/AskFieldEggSnapshot", true)
+   or ReplicatedStorage:FindFirstChild("AskFieldEggSnapshot", true)
+   or ReplicatedStorage:FindFirstChild("Eggs: RequestAreaEggSnapshot", true)
+  if remoto and remoto:IsA("RemoteFunction") then
+   local ok, resultado = pcall(function() return remoto:InvokeServer() end)
+   if ok and type(resultado) == "table" then table.insert(encontrados, resultado.Records or resultado) end
+  end
+  registros = encontrados
+  pedindo = false
+ end)
+end
 local function procurar()
  local pasta = workspace:FindFirstChild("AreaEggSlotsClient")
- if not pasta then
-  alvo = nil
-  melhor.Text = "Ovos não encontrados"
-  estado.Text = "Pasta de ovos não encontrada"
-  return
- end
- local escolha, maior, vistos = nil, nil, 0
- for _, obj in ipairs(pasta:GetChildren()) do
-  if obj:IsA("Model") or obj:IsA("BasePart") then
-   vistos = vistos + 1
-   local valor = tonumber(obj:GetAttribute("Income") or obj:GetAttribute("EarningRate"))
-   if valor and valor >= 0 and (not maior or valor > maior) then
-    maior, escolha = valor, obj
+ local modelos = {}
+ if pasta then
+  for _, obj in ipairs(pasta:GetChildren()) do
+   if obj:IsA("Model") or obj:IsA("BasePart") then
+    modelos[tostring(obj:GetAttribute("UID") or obj:GetAttribute("Uid") or obj.Name)] = obj
    end
   end
  end
- alvo = escolha
- if escolha then
-  local raridade = escolha:GetAttribute("Rarity") or escolha:GetAttribute("RarityTier") or "?"
-  melhor.Text = "MELHOR OVO\n" .. tostring(escolha.Name) .. "  |  " .. tostring(raridade) .. "\nValor: " .. tostring(maior)
-  estado.Text = tostring(vistos) .. " ovos detectados"
+ local candidatos = {}
+ local function adicionar(uid, nome, raridade, valor, modelo, localizacao)
+  valor = tonumber(valor)
+  if modelo and not modelo.Parent then modelo = nil end
+  if valor and valor >= 0 and (modelo or localizacao) then
+   table.insert(candidatos, { uid = uid, nome = nome, raridade = raridade, valor = valor, modelo = modelo, localizacao = localizacao })
+  end
+ end
+ for _, lista in ipairs(registros) do
+  if type(lista) == "table" then
+   for chave, item in pairs(lista) do
+    if type(item) == "table" and item.State ~= "Carried" and item.State ~= 2 then
+     local uid = item.Uid or item.UID or (type(chave) == "string" and chave)
+     local cf = item.BoundsCFrame or item.BottomCFrame or item.CFrame
+     local ponto = typeof(cf) == "CFrame" and cf.Position or nil
+     local modelo = uid and modelos[tostring(uid)] or nil
+     adicionar(uid, item.AssetCategory or item.Category or uid or "Ovo", item.Rarity or item.RarityTier or "?", item.Income or item.EarningRate, modelo, ponto)
+    end
+   end
+  end
+ end
+ for uid, obj in pairs(modelos) do
+  adicionar(uid, obj:GetAttribute("Category") or obj.Name, obj:GetAttribute("Rarity") or obj:GetAttribute("RarityTier") or "?", obj:GetAttribute("Income") or obj:GetAttribute("EarningRate"), obj, nil)
+ end
+ table.sort(candidatos, function(a, b) return a.valor > b.valor end)
+ alvo = candidatos[1]
+ if alvo then
+  melhor.Text = "MELHOR OVO\n" .. tostring(alvo.nome) .. "  |  " .. tostring(alvo.raridade) .. "\nValor: " .. tostring(alvo.valor)
+  estado.Text = tostring(#candidatos) .. " registros com valor"
  else
-  melhor.Text = vistos > 0 and "Nenhum ovo com valor legível" or "Nenhum ovo encontrado"
-  estado.Text = vistos > 0 and "O jogo não mostrou o valor dos ovos" or "Aguardando ovos aparecerem"
+  melhor.Text = "Nenhum ovo com valor legível"
+  estado.Text = "Ainda não consegui ler os dados dos ovos"
  end
 end
 local function irAoAlvo(interagir)
- if not alvo or not alvo.Parent then estado.Text = "Sem alvo disponível" return end
+ if not alvo then estado.Text = "Sem alvo disponível" return end
  local personagem = player.Character
  local raiz = personagem and personagem:FindFirstChild("HumanoidRootPart")
- local destino = posicao(alvo)
+ local destino = alvo.modelo and alvo.modelo.Parent and posicao(alvo.modelo) or alvo.localizacao
  if not raiz or not destino then estado.Text = "Personagem ou ovo indisponível" return end
  raiz.CFrame = CFrame.new(destino + Vector3.new(0, 3, 0))
  if interagir then
-  local prompt = alvo:FindFirstChildWhichIsA("ProximityPrompt", true)
+  local prompt = alvo.modelo and alvo.modelo:FindFirstChildWhichIsA("ProximityPrompt", true)
   if prompt and type(fireproximityprompt) == "function" then
    local ok = pcall(fireproximityprompt, prompt)
    estado.Text = ok and "Tentativa enviada; confira no jogo" or "Não foi possível interagir"
@@ -140,7 +184,9 @@ end)
 gui.Destroying:Connect(function() ativo = false repetindo = false end)
 task.spawn(function()
  while ativo do
-  procurar()
-  task.wait(3)
+  atualizarRegistros()
+  task.wait(1)
+  if ativo then procurar() end
+  task.wait(4)
  end
 end)
