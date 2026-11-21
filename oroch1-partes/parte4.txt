@@ -1,0 +1,42 @@
+imentoPulo, indicador, indicadorPulo }) do
+  parte.BackgroundColor3 = cores.destaque
+ end
+ conteudo.ScrollBarImageColor3 = cores.destaque
+ botaoTema.Text = "Tema: " .. temaAtual
+end
+
+botaoTema.Activated:Connect(function()
+ local proximo = 1
+ for i, nome in ipairs(ordemTemas) do
+  if nome == temaAtual then
+   proximo = i % #ordemTemas + 1
+   break
+  end
+ end
+ temaAtual = ordemTemas[proximo]
+ aplicarTema()
+ agendarSalvamento()
+end)
+aplicarTema()
+
+local personagemAtual = player.Character
+if personagemAtual and (velocidade ~= nil or pulo ~= nil) then
+ task.spawn(function()
+  local humanoid = personagemAtual:FindFirstChildOfClass("Humanoid") or personagemAtual:WaitForChild("Humanoid", 10)
+  if humanoid and gui.Parent and player.Character == personagemAtual then
+   if velocidade then humanoid.WalkSpeed = velocidade end
+   aplicarPuloAoPersonagem(humanoid)
+  end
+ end)
+end
+
+gui.Destroying:Connect(function()
+ salvarConfiguracoes()
+ conexao:Disconnect()
+ movimento:Disconnect()
+ fimEntrada:Disconnect()
+ movimentoPulo:Disconnect()
+ fimEntradaPulo:Disconnect()
+ movimentoMenu:Disconnect()
+ fimEntradaMenu:Disconnect()
+end)
