@@ -35,13 +35,13 @@ end
 local open = button(gui, "OROCH1", UDim2.fromOffset(78, 28), UDim2.new(1, -88, 0.5, -14), blue, 11)
 open.Visible = false
 local frame = Instance.new("Frame")
-frame.Name = "Painel"; frame.AnchorPoint = Vector2.new(1, 0.5); frame.Size = UDim2.fromOffset(235, 290)
+frame.Name = "Painel"; frame.AnchorPoint = Vector2.new(1, 0.5); frame.Size = UDim2.fromOffset(235, 320)
 frame.Position = UDim2.new(1, -10, 0.5, 0); frame.BackgroundColor3 = dark; frame.BorderSizePixel = 0; frame.Parent = gui
 corner(frame, 9); outline(frame)
 local scale = Instance.new("UIScale"); scale.Parent = frame
 local function resize()
  local camera = Workspace.CurrentCamera
- if camera then scale.Scale = math.min(1, math.max(0.55, (camera.ViewportSize.Y - 12) / 290), math.max(0.55, (camera.ViewportSize.X - 16) / 235)) end
+ if camera then scale.Scale = math.min(1, math.max(0.55, (camera.ViewportSize.Y - 12) / 320), math.max(0.55, (camera.ViewportSize.X - 16) / 235)) end
 end
 resize()
 local cameraConnection
@@ -65,10 +65,13 @@ layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 local status = label(frame, "Carregando...", UDim2.new(1, -20, 0, 29), UDim2.fromOffset(10, 226), 10)
 status.TextWrapped = true; status.TextTruncate = Enum.TextTruncate.None
-local go = button(frame, "▶  GO", UDim2.new(0.5, -12, 0, 25), UDim2.new(0, 10, 1, -31), blue, 11)
-local stop = button(frame, "PARAR", UDim2.new(0.5, -12, 0, 25), UDim2.new(0.5, 2, 1, -31), medium, 11)
-outline(go); outline(stop)
+local go = button(frame, "▶  GO", UDim2.new(0.5, -12, 0, 25), UDim2.new(0, 10, 1, -61), blue, 11)
+local stop = button(frame, "PARAR", UDim2.new(0.5, -12, 0, 25), UDim2.new(0.5, 2, 1, -61), medium, 11)
+local markBase = button(frame, "MARCAR BASE", UDim2.new(0.5, -12, 0, 25), UDim2.new(0, 10, 1, -31), medium, 10)
+local tpBase = button(frame, "TP BASE", UDim2.new(0.5, -12, 0, 25), UDim2.new(0.5, 2, 1, -31), blue, 10)
+outline(go); outline(stop); outline(markBase); outline(tpBase)
 local selected, generation, busy = nil, 0, false
+local savedBase = nil
 local function basePart(prompt)
  local p = prompt.Parent
  if p and p:IsA("Attachment") then p = p.Parent end
@@ -91,20 +94,40 @@ local function isEggPrompt(p)
  local action = context:find("carry", 1, true) or context:find("steal", 1, true) or context:find("pegar", 1, true) or context:find("roubar", 1, true)
  return egg ~= nil and action ~= nil
 end
+local function possibleName(s)
+ if type(s) ~= "string" then return nil end
+ s = s:gsub("<[^>]->", ""):match("^%s*(.-)%s*$")
+ if #s == 0 or #s > 40 or s:find("[\r\n$%%]") or s:match("^%d") then return nil end
+ local low = s:lower()
+ local generic = {egg=true, ovo=true, eggs=true, carry=true, steal=true, pegar=true, roubar=true, model=true, part=true, attachment=true, common=true, rare=true, epic=true, legendary=true, mythic=true, godly=true}
+ if generic[low] or low:find("/s", 1, true) or low:find(" kg", 1, true) then return nil end
+ return s
+end
 local function describe(p)
- local object = p.ObjectText
- if object and object ~= "" and #object <= 40 then return object end
- local parent = p.Parent
+ local nodes = {p}; local ancestor = p.Parent
  for _ = 1, 3 do
-  if not parent then break end
-  for _, v in ipairs(parent:GetDescendants()) do
-   if (v:IsA("TextLabel") or v:IsA("TextButton")) and v.Text ~= "" and #v.Text <= 40 and not v.Text:find("[\r\n]") then
-    return v.Text
+  if not ancestor or ancestor == Workspace then break end
+  table.insert(nodes, ancestor); ancestor = ancestor.Parent
+ end
+ for _, obj in ipairs(nodes) do
+  for _, key in ipairs({"EggName", "PetName", "CreatureName", "DisplayName"}) do
+   local name = possibleName(obj:GetAttribute(key)); if name then return name end
+   local value = obj:FindFirstChild(key)
+   if value and value:IsA("StringValue") then name = possibleName(value.Value); if name then return name end end
+  end
+ end
+ local object = possibleName(p.ObjectText); if object then return object end
+ for _, obj in ipairs(nodes) do
+  for _, v in ipairs(obj:GetDescendants()) do
+   if (v:IsA("TextLabel") or v:IsA("TextButton")) and v:FindFirstAncestorWhichIsA("BillboardGui") then
+    local field = v.Name:lower()
+    if field == "name" or field == "eggname" or field == "petname" or field == "creaturename" or field == "title" then
+     local name = possibleName(v.Text); if name then return name end
+    end
    end
   end
-  parent = parent.Parent
  end
- return "Ovo (sem nome visível)"
+ return "Ovo (nome não disponível)"
 end
 local function scan()
  local root = rootPart(); local found = {}
@@ -149,6 +172,21 @@ local function refreshList()
  end
 end
 refresh.Activated:Connect(refreshList)
+markBase.Activated:Connect(function()
+ local root = rootPart()
+ if not root then status.Text = "Personagem indisponível."; return end
+ savedBase = root.CFrame
+ status.Text = "Base marcada neste local!"
+end)
+tpBase.Activated:Connect(function()
+ if not savedBase then status.Text = "Na sua base, toque MARCAR BASE primeiro."; return end
+ local root = rootPart()
+ if not root then status.Text = "Personagem indisponível."; return end
+ generation = generation + 1; busy = false
+ local ok = pcall(function() root.CFrame = savedBase end)
+ if ok then status.Text = "TP solicitado. Confira se chegou na base."
+ else status.Text = "Não foi possível ir até a base." end
+end)
 stop.Activated:Connect(function() generation = generation + 1; busy = false; status.Text = "Tentativa interrompida." end)
 go.Activated:Connect(function()
  if busy then return end
