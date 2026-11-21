@@ -1,0 +1,147 @@
+false
+local toquePulo = nil
+sliderPulo.InputBegan:Connect(function(input)
+ if input.UserInputType == Enum.UserInputType.MouseButton1 then
+  arrastandoPulo = true
+  toquePulo = nil
+  ajustarPuloPelaPosicao(input.Position.X)
+ elseif input.UserInputType == Enum.UserInputType.Touch and not arrastandoPulo then
+  arrastandoPulo = true
+  toquePulo = input
+  ajustarPuloPelaPosicao(input.Position.X)
+ end
+end)
+
+local movimentoPulo = UserInputService.InputChanged:Connect(function(input)
+ if not arrastandoPulo then return end
+ if (toquePulo and input == toquePulo) or
+  (not toquePulo and input.UserInputType == Enum.UserInputType.MouseMovement) then
+  ajustarPuloPelaPosicao(input.Position.X)
+ end
+end)
+
+local fimEntradaPulo = UserInputService.InputEnded:Connect(function(input)
+ if (toquePulo and input == toquePulo) or
+  (not toquePulo and input.UserInputType == Enum.UserInputType.MouseButton1) then
+  arrastandoPulo = false
+  toquePulo = nil
+ end
+end)
+
+aplicarPulo.Activated:Connect(function()
+ local valor = tonumber(campoPulo.Text)
+ if valor and valor >= 0 and valor <= 500 then
+  definirPulo(valor)
+ else
+  campoPulo.Text = ""
+  campoPulo.PlaceholderText = "Digite de 0 a 500"
+ end
+end)
+
+resetarPulo.Activated:Connect(function()
+ definirPulo(50)
+end)
+
+atualizarSliderPulo(50)
+
+alternar.Activated:Connect(function()
+ menu.Visible = not menu.Visible
+ alternar.Text = menu.Visible and "Minimizar" or "Abrir Oroch1"
+end)
+
+aplicar.Activated:Connect(function()
+ local valor = tonumber(campo.Text)
+ if valor and valor >= 1 and valor <= 500 then
+  definirVelocidade(valor)
+ else
+  campo.Text = ""
+  campo.PlaceholderText = "Digite de 1 a 500"
+ end
+end)
+
+resetar.Activated:Connect(function()
+ definirVelocidade(16)
+end)
+
+atualizarSlider(32)
+
+local conexao = player.CharacterAdded:Connect(function(personagem)
+ local humanoid = personagem:WaitForChild("Humanoid", 10)
+ if humanoid and gui.Parent then
+  if velocidade then humanoid.WalkSpeed = velocidade end
+  aplicarPuloAoPersonagem(humanoid)
+ end
+end)
+
+-- Carrega apenas valores validos; nao aplica valores padrao sem escolha anterior.
+if podeSalvar then
+ local existe = true
+ if type(isfile) == "function" then
+  local okExiste, resultado = pcall(isfile, arquivoConfig)
+  if okExiste then existe = resultado end
+ end
+ if existe then
+  local ok, dados = pcall(function()
+   return HttpService:JSONDecode(readfile(arquivoConfig))
+  end)
+  if ok and type(dados) == "table" then
+ if dados.tema == "Roxo" or dados.tema == "Azul" or dados.tema == "Escuro" then
+ temaAtual = dados.tema
+ end
+   if type(dados.velocidade) == "number" and dados.velocidade >= 1 and dados.velocidade <= 500 then
+    velocidade = dados.velocidade
+    campo.Text = tostring(velocidade)
+    atualizarSlider(velocidade)
+   end
+   if type(dados.pulo) == "number" and dados.pulo >= 0 and dados.pulo <= 500 then
+    pulo = dados.pulo
+    campoPulo.Text = tostring(pulo)
+    atualizarSliderPulo(pulo)
+   end
+   statusSalvar.Text = "Configuracoes carregadas"
+  elseif type(isfile) == "function" then
+   statusSalvar.Text = "Nao foi possivel carregar"
+  end
+ end
+end
+
+-- Visual e temas. A interface continua funcionando em celular e computador.
+local temas = {
+ Roxo = { fundo = Color3.fromRGB(31, 26, 45), botao = Color3.fromRGB(108, 75, 165), campo = Color3.fromRGB(52, 45, 68), trilho = Color3.fromRGB(86, 75, 105), destaque = Color3.fromRGB(177, 140, 245) },
+ Azul = { fundo = Color3.fromRGB(22, 35, 49), botao = Color3.fromRGB(43, 103, 153), campo = Color3.fromRGB(38, 54, 69), trilho = Color3.fromRGB(70, 91, 110), destaque = Color3.fromRGB(111, 191, 245) },
+ Escuro = { fundo = Color3.fromRGB(27, 29, 33), botao = Color3.fromRGB(71, 75, 83), campo = Color3.fromRGB(47, 50, 56), trilho = Color3.fromRGB(81, 84, 92), destaque = Color3.fromRGB(195, 199, 208) },
+}
+local ordemTemas = { "Roxo", "Azul", "Escuro" }
+local botaoTema = criarBotao("", 385)
+local borda = Instance.new("UIStroke")
+borda.Thickness = 1
+borda.Transparency = 0.35
+borda.Parent = menu
+
+local function aplicarTema()
+ local cores = temas[temaAtual]
+ menu.BackgroundColor3 = cores.fundo
+ borda.Color = cores.destaque
+ titulo.Font = Enum.Font.GothamBold
+ titulo.Text = "OROCH1  •  arraste"
+ titulo.TextSize = 15
+ titulo.TextColor3 = Color3.fromRGB(245, 245, 250)
+ statusSalvar.Font = Enum.Font.Gotham
+ statusSalvar.TextColor3 = Color3.fromRGB(205, 205, 215)
+ for _, botao in ipairs({ alternar, aplicar, resetar, aplicarPulo, resetarPulo, botaoTema }) do
+  botao.BackgroundColor3 = cores.botao
+  botao.TextColor3 = Color3.fromRGB(255, 255, 255)
+  botao.Font = Enum.Font.GothamMedium
+  botao.BorderSizePixel = 0
+ end
+ for _, caixa in ipairs({ campo, campoPulo }) do
+  caixa.BackgroundColor3 = cores.campo
+  caixa.TextColor3 = Color3.fromRGB(255, 255, 255)
+  caixa.PlaceholderColor3 = Color3.fromRGB(190, 190, 200)
+  caixa.Font = Enum.Font.Gotham
+  caixa.BorderSizePixel = 0
+ end
+ for _, barra in ipairs({ trilho, trilhoPulo }) do
+  barra.BackgroundColor3 = cores.trilho
+ end
+ for _, parte in ipairs({ preenchimento, preench
